@@ -1,6 +1,4 @@
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 
 #include "png.h"
 #include "zlib/zlib.h"
@@ -9,7 +7,7 @@ static const char *png_signature = "\x89PNG\r\n\x1a\n";
 
 int main(int argc, char **argv)
 {
-    const char *filename = "elden_ring.png";
+    const char *filename = "basn6a08.png";
     FILE *fp = fopen(filename, "rb");
     if (!fp)
     {
@@ -29,10 +27,14 @@ int main(int argc, char **argv)
     parse_png(fp, &chunk_list);
     PNG_CHUNKS_DEBUG_PRINT(PPCAST(&chunk_list));
 
-    parse_ihdr(&chunk_list);
+    IHDRChunk ihdr = parse_ihdr(&chunk_list);
+    bytearray pixels;
+    bytearray_init(&pixels);
+
+    parse_idat(&chunk_list, ihdr, &pixels);
 
     fclose(fp);
-
+    bytearray_free(&pixels);
     printf("success");
 
     return 0;
