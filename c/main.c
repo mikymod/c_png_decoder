@@ -1,7 +1,11 @@
+
 #define SDL_MAIN_HANDLED
+
 #include <SDL.h>
 #define STB_IMAGE_IMPLEMENTATION
+
 #include <stdio.h>
+#include <string.h>
 
 #include "png.h"
 
@@ -9,32 +13,6 @@ static const char *png_signature = "\x89PNG\r\n\x1a\n";
 
 int main(int argc, char **argv)
 {
-    const char *filename = "basn6a08.png";
-    FILE *fp = fopen(filename, "rb");
-    if (!fp)
-    {
-        fprintf(stderr, "Unable to open %s\n", filename);
-        return -1;
-    }
-
-    char signature[10];
-    size_t size = fread(&signature, 1, strlen(png_signature), fp);
-    if (strcmp(signature, png_signature) != 0)
-    {
-        fprintf(stderr, "Invalid PNG signature in %s\n", filename);
-        return -1;
-    }
-
-    PNGChunkNode *chunk_list = NULL;
-    parse_png(fp, &chunk_list);
-    PNG_CHUNKS_DEBUG_PRINT(PPCAST(&chunk_list));
-
-    IHDRChunk ihdr = parse_ihdr(&chunk_list);
-
-    bytearray pixels;
-    bytearray_init(&pixels);
-    parse_idat(&chunk_list, ihdr, &pixels);
-
     int ret = -1;
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
     {
@@ -57,9 +35,29 @@ int main(int argc, char **argv)
         goto quit;
     }
 
-    int width = ihdr.width;
-    int height = ihdr.height;
-    int channels = 4;
+    const char *filename = "basn6a08.png";
+    FILE *fp = fopen(filename, "rb");
+    if (!fp)
+    {
+        fprintf(stderr, "Unable to open %s\n", filename);
+        return -1;
+    }
+
+    char signature[8];
+    size_t size = fread(&signature, 8, 1, fp);
+    if (memcmp(signature, png_signature, 8) != 0)
+    {
+        fprintf(stderr, "Invalid PNG signature in %s\n", filename);
+        return -1;
+    }
+
+    uint32_t width;
+    uint32_t height;
+    uint32_t channels;
+
+    bytearray pixels;
+    bytearray_init(&pixels);
+    parse_png(fp, &pixels, &width, &height, &channels);
     if (!pixels.data)
     {
         SDL_Log("Unable to open image");
@@ -78,6 +76,8 @@ int main(int argc, char **argv)
         goto quit;
     }
 
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
     SDL_UpdateTexture(texture, NULL, pixels.data, width * channels);
     bytearray_free(&pixels);
 
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
             }
         }
 
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
         SDL_Rect target_rect = {100, 100, 256, 256};
         SDL_RenderCopy(renderer, texture, NULL, &target_rect);
