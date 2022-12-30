@@ -121,12 +121,12 @@ IHDRChunk parse_ihdr(PNGChunkNode **chunk_list)
     return ihdr;
 }
 
-int paeth_predictor(int a, int b, int c)
+int32_t paeth_predictor(const int32_t a, const int32_t b, const int32_t c)
 {
-    int p = a + b - c;
-    int pa = abs(p - a);
-    int pb = abs(p - b);
-    int pc = abs(p - c);
+    int32_t p = a + b - c;
+    int32_t pa = abs(p - a);
+    int32_t pb = abs(p - b);
+    int32_t pc = abs(p - c);
     if (pa <= pb && pa <= pc)
     {
         return a;
@@ -141,7 +141,7 @@ int paeth_predictor(int a, int b, int c)
     }
 }
 
-int recon_a(unsigned char *pixels, int r, int c, int bytes_per_pixel, int stride)
+int recon_a(const uint8_t *pixels, const int r, const int c, const int bytes_per_pixel, const int stride)
 {
     if (c >= bytes_per_pixel)
     {
@@ -150,97 +150,96 @@ int recon_a(unsigned char *pixels, int r, int c, int bytes_per_pixel, int stride
     return 0;
 }
 
-int recon_b(unsigned char *pixels, int r, int c, int bytes_per_pixel, int stride)
+int32_t recon_b(const uint8_t *pixels, const int r, const int c, const int bytes_per_pixel, const int stride)
 {
-    if (r >= 0)
+    if (r > 0)
     {
         return pixels[(r - 1) * stride + c];
     }
     return 0;
 }
 
-int recon_c(unsigned char *pixels, int r, int c, int bytes_per_pixel, int stride)
+int32_t recon_c(const uint8_t *pixels, const int r, const int c, const int bytes_per_pixel, const int stride)
 {
-    if (r >= 0 && c >= bytes_per_pixel)
+    if (r > 0 && c >= bytes_per_pixel)
     {
         return pixels[(r - 1) * stride + c - bytes_per_pixel];
     }
     return 0;
 }
 
-void parse_idat(PNGChunkNode **chunk_list, const IHDRChunk ihdr, bytearray *array)
+void parse_idat(PNGChunkNode **chunk_list, const IHDRChunk ihdr, bytearray *pixels)
 {
     // Store idat data
-    size_t offset = 0;
     PNGChunkNode *current = *chunk_list;
+
+    bytearray array;
+    bytearray_init(&array);
+
     do
     {
         if (memcmp(current->chunk.type, "IDAT", 4) == 0)
         {
-            int res = bytearray_append(array, current->chunk.data, current->chunk.length);
-            offset = current->chunk.length;
+            int res = bytearray_append(&array, current->chunk.data, current->chunk.length);
         }
         current = current->node.next;
     } while (current != NULL);
 
-    printf("byte array len: %zu\n", array->len);
-    printf("byte array max: %zu\n", array->max);
+    printf("byte array len: %zu\n", array.len);
+    printf("byte array max: %zu\n", array.max);
 
     // Decompress data
-    unsigned long compressed_max_size = compressBound(ihdr.height * (1 + ihdr.width * 4));
+    uint32_t bytes_per_pixel = 4;
+    uint32_t stride = ihdr.width * bytes_per_pixel;
+    unsigned long uncompressed_size = ihdr.height * (1 + stride);
+    unsigned long compressed_max_size = compressBound(uncompressed_size);
     printf("compressed_max_size: %zu\n", compressed_max_size);
-    unsigned long uncompressed_size;
-    uint8_t *uncompressed_data = (uint8_t *)malloc(ihdr.height * (1 + ihdr.width * 4));
-    printf("uncompressed_data\n");
-    int32_t result = uncompress(uncompressed_data, &uncompressed_size, array->data, compressed_max_size);
+    uint8_t *idat_data = (uint8_t *)malloc(uncompressed_size);
+    int32_t result = uncompress(idat_data, &uncompressed_size, array.data, compressed_max_size);
+    printf("uncompressed_size: %d\n", uncompressed_size);
     if (result != Z_OK)
     {
         printf("unable to uncompress: error %d\n", result);
         bytearray_free(&array);
-        free(uncompressed_data);
+        free(idat_data);
     }
-    printf("buffer compressed from %llu to %lu\n", array->len, compressed_max_size);
-
-    size_t bytes_per_pixel = 4;
-    uint32_t stride = ihdr.width * bytes_per_pixel;
+    printf("buffer compressed from %llu to %lu\n", array.len, compressed_max_size);
 
     int i = 0;
-    int count = 0;
-    int filter_type = 0;
-    int filt_x = 0;
-    int recon_x = 0;
+    int32_t pixel = 0;
     for (size_t r = 0; r < ihdr.height; r++)
     {
-        int filter_type = uncompressed_data[i];
-        i += 1;
-        for (size_t c = 0; i < stride; i++)
+        int32_t filter_type = idat_data[i];
+        i++;
+        for (size_t c = 0; c < stride; c++)
         {
-            int filt_x = uncompressed_data[i];
-            i += 1;
-            if (filter_type == 0)
+            int32_t filt_x = idat_data[i];
+            i++;
+            switch (filter_type)
             {
-                recon_x = filt_x;
-            }
-            else if (filter_type == 1)
-            {
-                recon_x = filt_x + recon_a(array->data, r, c, bytes_per_pixel, stride);
-            }
-            else if (filter_type == 2)
-            {
-                recon_x = filt_x + recon_b(array->data, r, c, bytes_per_pixel, stride);
-            }
-            else if (filter_type == 3)
-            {
-                recon_x = filt_x + (recon_a(array->data, r, c, bytes_per_pixel, stride) + recon_b(array->data, r, c, bytes_per_pixel, stride)) / 2;
-            }
-            else if (filter_type == 4)
-            {
-                recon_x = filt_x + paeth_predictor(recon_a(array->data, r, c, bytes_per_pixel, stride), recon_b(array->data, r, c, bytes_per_pixel, stride), recon_c(array->data, r, c, bytes_per_pixel, stride));
-            }
-            else
-            {
+            case 0:
+                pixel = filt_x;
+                break;
+            case 1:
+                pixel = filt_x + recon_a(pixels->data, r, c, bytes_per_pixel, stride);
+                break;
+            case 2:
+                pixel = filt_x + recon_b(pixels->data, r, c, bytes_per_pixel, stride);
+                break;
+            case 3:
+                pixel = filt_x + (recon_a(pixels->data, r, c, bytes_per_pixel, stride) + recon_b(pixels->data, r, c, bytes_per_pixel, stride)) / 2;
+                break;
+            case 4:
+                pixel = filt_x + paeth_predictor(
+                                     recon_a(pixels->data, r, c, bytes_per_pixel, stride),
+                                     recon_b(pixels->data, r, c, bytes_per_pixel, stride),
+                                     recon_c(pixels->data, r, c, bytes_per_pixel, stride));
+                break;
+            default:
                 printf("unknown filter type %d\n", filter_type);
             }
+
+            bytearray_append(pixels, &pixel, 1);
         }
     }
 }

@@ -30,9 +30,9 @@ int main(int argc, char **argv)
     PNG_CHUNKS_DEBUG_PRINT(PPCAST(&chunk_list));
 
     IHDRChunk ihdr = parse_ihdr(&chunk_list);
+
     bytearray pixels;
     bytearray_init(&pixels);
-
     parse_idat(&chunk_list, ihdr, &pixels);
 
     int ret = -1;
@@ -59,8 +59,7 @@ int main(int argc, char **argv)
 
     int width = ihdr.width;
     int height = ihdr.height;
-    int channels = 255; // FIXME: hardcoded
-
+    int channels = 4;
     if (!pixels.data)
     {
         SDL_Log("Unable to open image");
