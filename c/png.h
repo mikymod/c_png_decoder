@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "linked_list.h"
-#include "zlib/zlib.h"
+#include "../zlib/zlib.h"
 #include "byte_array.h"
 
 #define PNG_CHUNKS_DEBUG_PRINT(head)                                                                            \

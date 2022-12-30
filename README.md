@@ -1,0 +1,1 @@
+clang.exe -o png_decoder.exe .\c\main.c .\c\linked_list.c -L.\zlib\ -I.\zlib\ -lzlibwapi -L.\sdl\lib -I.\sdl\include -lSDL2
