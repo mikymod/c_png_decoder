@@ -9,8 +9,6 @@
 
 #include "png.h"
 
-static const char *png_signature = "\x89PNG\r\n\x1a\n";
-
 int main(int argc, char **argv)
 {
     int ret = -1;
@@ -36,28 +34,13 @@ int main(int argc, char **argv)
     }
 
     const char *filename = "basn6a08.png";
-    FILE *fp = fopen(filename, "rb");
-    if (!fp)
-    {
-        fprintf(stderr, "Unable to open %s\n", filename);
-        return -1;
-    }
-
-    char signature[8];
-    size_t size = fread(&signature, 8, 1, fp);
-    if (memcmp(signature, png_signature, 8) != 0)
-    {
-        fprintf(stderr, "Invalid PNG signature in %s\n", filename);
-        return -1;
-    }
-
-    uint32_t width;
-    uint32_t height;
-    uint32_t channels;
 
     bytearray pixels;
     bytearray_init(&pixels);
-    parse_png(fp, &pixels, &width, &height, &channels);
+    uint32_t width;
+    uint32_t height;
+    uint32_t channels;
+    ret = png_decode(filename, &pixels, &width, &height, &channels);
     if (!pixels.data)
     {
         SDL_Log("Unable to open image");
@@ -103,7 +86,6 @@ int main(int argc, char **argv)
     }
 
 quit:
-    fclose(fp);
     bytearray_free(&pixels);
     SDL_Quit();
     return ret;

@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
+#include <stdio.h>
 
 #include "byte_array.h"
 
@@ -27,19 +27,26 @@ int32_t bytearray_append(bytearray *barray, const void *from, const size_t size)
         size_t max;
         void *data;
 
-        /* Example policy: */
+        // Policy
         if (len < 8)
-            max = 8; /* At least 8 chars, */
+        {
+            max = 8;
+        }
         else if (len < 4194304)
-            max = (3 * len) / 2; /* grow by 50% up to 4,194,304 bytes, */
+        {
+            // grow by 50% up to 4,194,304 bytes
+            max = (3 * len) / 2;
+        }
         else
-            max = (len | 2097151) + 2097153 - 24; /* then pad to next multiple of 2,097,152 sans 24 bytes. */
+        {
+            // then pad to next multiple of 2,097,152 sans 24 bytes.
+            max = (len | 2097151) + 2097153 - 24;
+        }
 
         data = realloc(barray->data, max);
         if (!data)
         {
-            /* Not enough memory available. Old data is still valid. */
-            printf("Not enough memory available");
+            fprintf(stderr, "Not enough memory available\n");
             return -1;
         }
 
@@ -47,7 +54,6 @@ int32_t bytearray_append(bytearray *barray, const void *from, const size_t size)
         barray->data = (uint8_t *)data;
     }
 
-    /* Copy appended data; we know there is room now. */
     memmove(barray->data + barray->len, from, size);
     barray->len += size;
 

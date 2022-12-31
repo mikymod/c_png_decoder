@@ -7,6 +7,8 @@
 
 #include "linked_list.h"
 
+static const char *png_signature = "\x89PNG\r\n\x1a\n";
+
 /// Represents a generic png chunk
 typedef struct png_chunk
 {
@@ -153,25 +155,19 @@ void parse_idat(PNGChunkNode **chunk_list, const IHDRChunk ihdr, bytearray *pixe
         current = current->node.next;
     } while (current != NULL);
 
-    printf("byte array len: %zu\n", array.len);
-    printf("byte array max: %zu\n", array.max);
-
     // Decompress data
     uint32_t bytes_per_pixel = 4;
     uint32_t stride = ihdr.width * bytes_per_pixel;
     unsigned long uncompressed_size = ihdr.height * (1 + stride);
     unsigned long compressed_max_size = compressBound(uncompressed_size);
-    printf("compressed_max_size: %zu\n", compressed_max_size);
     uint8_t *idat_data = (uint8_t *)malloc(uncompressed_size);
     int32_t result = uncompress(idat_data, &uncompressed_size, array.data, compressed_max_size);
-    printf("uncompressed_size: %d\n", uncompressed_size);
     if (result != Z_OK)
     {
-        printf("unable to uncompress: error %d\n", result);
+        fprintf(stderr, "Unable to uncompress: error %d\n", result);
         bytearray_free(&array);
         free(idat_data);
     }
-    printf("buffer compressed from %llu to %lu\n", array.len, compressed_max_size);
 
     int i = 0;
     int32_t pixel = 0;
@@ -204,7 +200,7 @@ void parse_idat(PNGChunkNode **chunk_list, const IHDRChunk ihdr, bytearray *pixe
                                      recon_c(pixels->data, r, c, bytes_per_pixel, stride));
                 break;
             default:
-                printf("unknown filter type %d\n", filter_type);
+                fprintf(stderr, "unknown filter type %d\n", filter_type);
             }
 
             bytearray_append(pixels, &pixel, 1);
@@ -212,8 +208,23 @@ void parse_idat(PNGChunkNode **chunk_list, const IHDRChunk ihdr, bytearray *pixe
     }
 }
 
-void parse_png(FILE *fp, bytearray *pixels, uint32_t *width, uint32_t *height, uint32_t *channels)
+int32_t png_decode(const char *filename, bytearray *pixels, uint32_t *width, uint32_t *height, uint32_t *channels)
 {
+    FILE *fp = fopen(filename, "rb");
+    if (!fp)
+    {
+        fprintf(stderr, "Unable to open %s\n", filename);
+        return -1;
+    }
+
+    char signature[8];
+    size_t size = fread(&signature, 8, 1, fp);
+    if (memcmp(signature, png_signature, 8) != 0)
+    {
+        fprintf(stderr, "Invalid PNG signature in %s\n", filename);
+        return -1;
+    }
+
     PNGChunkNode *chunk_list = NULL;
 
     PNGChunk chunk;
