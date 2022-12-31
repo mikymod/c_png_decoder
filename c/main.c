@@ -31,7 +31,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    SDL_Window *window = SDL_CreateWindow("SDL is active!", 100, 100, 512, 512, 0);
+    SDL_Window *window = SDL_CreateWindow("png_decoder", 100, 100, 512, 512, 0);
     if (!window)
     {
         SDL_Log("Unable to create window: %s", SDL_GetError());
