@@ -9,8 +9,21 @@
 
 #include "png.h"
 
+const char *get_filename_from_command_line(int argc, char **argv)
+{
+    if (argc != 2)
+    {
+        printf("Usage: png_decoder <filename>");
+        exit(-1);
+    }
+
+    return argv[1];
+}
+
 int main(int argc, char **argv)
 {
+    const char *filename = get_filename_from_command_line(argc, argv);
+
     int ret = -1;
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
     {
@@ -32,8 +45,6 @@ int main(int argc, char **argv)
         SDL_DestroyWindow(window);
         goto quit;
     }
-
-    const char *filename = "basn6a08.png";
 
     bytearray pixels;
     bytearray_init(&pixels);
